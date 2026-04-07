@@ -1,0 +1,197 @@
+name: Release Builds
+
+# Trigger on version tags (e.g., v2.0.1)
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  # Run tests on all platforms
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore
+      
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+      
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal --configuration Release
+
+  # Build and publish releases
+  build:
+    needs: test
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact: DeleteOld
+          - os: windows-latest
+            rid: win-x64
+            artifact: DeleteOld.exe
+          - os: macos-latest
+            rid: osx-x64
+            artifact: DeleteOld
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      
+      - name: Get version from tag
+        id: tag_name
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+      
+      - name: Publish self-contained executable
+        run: >
+          dotnet publish CodeBureau.DeleteOld/CodeBureau.DeleteOld.csproj
+          -c Release
+          -r ${{ matrix.config.rid }}
+          --self-contained
+          -o ./publish
+          -p:PublishSingleFile=true
+          -p:PublishTrimmed=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+        shell: bash
+      
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd publish
+          7z a -tzip ../deleteold-${{ matrix.config.rid }}.zip *
+          cd ..
+        shell: pwsh
+      
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd publish
+          tar -czf ../deleteold-${{ matrix.config.rid }}.tar.gz *
+          cd ..
+        shell: bash
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deleteold-${{ matrix.config.rid }}
+          path: |
+            deleteold-${{ matrix.config.rid }}.zip
+            deleteold-${{ matrix.config.rid }}.tar.gz
+          if-no-files-found: ignore
+
+  # Create GitHub Release and upload artifacts
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Get version from tag
+        id: tag_name
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          VERSION=${{ steps.tag_name.outputs.version }}
+          NOTES=$(sed -n "/### v${VERSION}/,/### v/p" README.md | head -n -1)
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.tag_name.outputs.version }}
+          name: DeleteOld v${{ steps.tag_name.outputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          files: |
+            artifacts/**/deleteold-*.zip
+            artifacts/**/deleteold-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish to Chocolatey (optional, requires API key)
+  chocolatey:
+    needs: [build, release]
+    runs-on: windows-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      
+      - name: Get version from tag
+        id: tag_name
+        run: |
+          $VERSION = "${{ github.ref }}" -replace 'refs/tags/v', ''
+          echo "version=$VERSION" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+        shell: pwsh
+      
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deleteold-win-x64
+          path: ./download
+      
+      - name: Extract DeleteOld.exe
+        run: |
+          cd ./download
+          7z x -aoa deleteold-win-x64.zip -o./extracted
+          Copy-Item -Path ./extracted/DeleteOld.exe -Destination ../choco/tools/ -Force
+          cd ..
+        shell: pwsh
+      
+      - name: Update Chocolatey package version
+        run: |
+          $nuspecPath = './choco/deleteold.nuspec'
+          [xml]$nuspec = Get-Content $nuspecPath
+          $nuspec.package.metadata.version = '${{ steps.tag_name.outputs.version }}'
+          $nuspec.Save($nuspecPath)
+        shell: pwsh
+      
+      - name: Pack Chocolatey package
+        run: |
+          choco pack ./choco/deleteold.nuspec
+        shell: pwsh
+      
+      - name: Push to Chocolatey
+        if: env.CHOCOLATEY_API_KEY != ''
+        run: |
+          choco push deleteold.${{ steps.tag_name.outputs.version }}.nupkg `
+            --key "${{ secrets.CHOCOLATEY_API_KEY }}"
+        shell: pwsh
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
