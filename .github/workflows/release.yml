@@ -169,7 +169,8 @@ jobs:
       - name: Extract DeleteOld.exe
         run: |
           cd ./download
-          7z x -aoa deleteold-win-x64.zip -o./extracted
+          New-Item -ItemType Directory -Path extracted -Force | Out-Null
+          7z x -aoa deleteold-win-x64.zip -oextracted
           Copy-Item -Path ./extracted/DeleteOld.exe -Destination ../choco/tools/ -Force
           cd ..
         shell: pwsh
