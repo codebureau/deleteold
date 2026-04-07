@@ -5,22 +5,21 @@
     <id>deleteold</id>
     <title>DeleteOld</title>
     <version>2.0.0</version>
-    <authors>Your Name</authors>
-    <owners>Your Name</owners>
+    <authors>CodeBureau</authors>
+    <owners>CodeBureau</owners>
     <summary>Fast command-line utility to delete files older than a specified age</summary>
     <description>DeleteOld is a modern, cross-platform utility for cleaning up old files and logs. Features include recursive directory operations, pattern filtering, dry-run simulation, and automatic empty folder removal. Perfect for system administration, log rotation, and build artifact cleanup.</description>
-    <projectUrl>https://github.com/[your-username]/deleteold</projectUrl>
-    <packageSourceUrl>https://github.com/[your-username]/deleteold</packageSourceUrl>
-    <docsUrl>https://github.com/[your-username]/deleteold</docsUrl>
-    <bugTrackerUrl>https://github.com/[your-username]/deleteold/issues</bugTrackerUrl>
-    <licenseUrl>https://github.com/[your-username]/deleteold/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/codebureau/deleteold</projectUrl>
+    <packageSourceUrl>https://github.com/codebureau/deleteold</packageSourceUrl>
+    <docsUrl>https://github.com/codebureau/deleteold</docsUrl>
+    <bugTrackerUrl>https://github.com/codebureau/deleteold/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/codebureau/deleteold/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <projectSourceUrl>https://github.com/[your-username]/deleteold</projectSourceUrl>
+    <projectSourceUrl>https://github.com/codebureau/deleteold</projectSourceUrl>
     
     <tags>file-cleanup log-rotation system-administration cli utility</tags>
     <copyright>Copyright (c) 2026</copyright>
     <language>en-US</language>
-    <iconUrl>https://raw.githubusercontent.com/[your-username]/deleteold/main/icon.png</iconUrl>
     
     <dependencies>
       <dependency id="dotnet-runtime" version="9.0" />
