@@ -192,7 +192,8 @@ jobs:
         if: env.CHOCOLATEY_API_KEY != ''
         run: |
           choco push deleteold.${{ steps.tag_name.outputs.version }}.nupkg `
-            --key "${{ secrets.CHOCOLATEY_API_KEY }}"
+            --key "${{ secrets.CHOCOLATEY_API_KEY }}" `
+            --source="https://push.chocolatey.org/"
         shell: pwsh
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
